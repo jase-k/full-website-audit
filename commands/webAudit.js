@@ -102,13 +102,19 @@ async function runLighthouse(urlArray, idx, folderPath, host){
 
 async function aggregateUrlsFromSite(url, host,  level=0){
     let urlsToAudit = new Set()
-    let html = await axios.get(url)
-    addURLToSet(findURLS(html.data), host, urlsToAudit)
-    // .then(html => {
-    //     let htmlBody = removeHeader(html.data)
-    //     let urlArray = findURLS(htmlBody)
-    //     addURLToSet(urlArray)
-    // })
+    urlsToAudit.add(url)
+    let counter = 0
+    //recursively search the rest of the site
+    while(urlsToAudit.size > counter){
+        let indexedUrlArray = Array.from(urlsToAudit)
+        console.log(chalk.green(indexedUrlArray.length + " / "+ counter))
+        if(indexedUrlArray[counter][0] == '/'){
+            indexedUrlArray[counter] = host+indexedUrlArray[counter]
+        }
+        let html = await axios.get(indexedUrlArray[counter])
+        addURLToSet(findURLS(html.data), host, urlsToAudit)
+        counter++
+    }
     return urlsToAudit
 }
 
