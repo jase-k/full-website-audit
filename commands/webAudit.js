@@ -8,7 +8,6 @@ import axios from 'axios'
 
 import { resourceUsage }  from 'process';
 import { resolve } from 'path';
-// let host = 'https://www.lulzbot.com'
 
 
 export default async function webAudit({url}){
@@ -101,7 +100,7 @@ async function runLighthouse(urlArray, idx, folderPath, host){
 }
 
 
-async function aggregateUrlsFromSite(url, host, level=0){
+async function aggregateUrlsFromSite(url, host,  level=0){
     let urlsToAudit = new Set()
     let html = await axios.get(url)
     addURLToSet(findURLS(html.data), host, urlsToAudit)
