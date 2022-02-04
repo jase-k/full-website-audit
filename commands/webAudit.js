@@ -8,10 +8,17 @@ import axios from 'axios'
 
 import { resourceUsage }  from 'process';
 import { resolve } from 'path';
-let host = 'https://www.lulzbot.com'
+// let host = 'https://www.lulzbot.com'
 
 
-export default async function webAudit(url){
+export default async function webAudit({url}){
+    if (!url){
+        console.log(chalk.red.bold("url is required specify url by -u or --url"))
+        return
+    }
+    
+    let host = url //Could change this to an option later to allow for an entrance domain and a parent domain to accomodate subdomains
+
     let date = new Date()
     //Creates Unique Folder Name
     let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDay()}(${date.getHours()}-${date.getMinutes()})`
@@ -29,19 +36,19 @@ export default async function webAudit(url){
 
 
     console.log(chalk.yellow("Searching for URLS to parse: "))
-    let urlSet = await aggregateUrlsFromSite('https://www.lulzbot.com/');
+    let urlSet = await aggregateUrlsFromSite(url, host);
 
     console.log(chalk.red.bold(`You are about to audit ${urlSet.size} urls... continue?`))
     // to check the integrating of the urls generated
-    // urlSet.forEach(url => {
-    //     console.log(chalk.green(url))
-    // })
+    urlSet.forEach(url => {
+        console.log(chalk.green(url))
+    })
     
     //converting urlSet into an Array to use a reducer on 
     let urlArrayToAudit = Array.from(urlSet)
     
     // Comment this in to test with only one url
-    runLighthouse(urlArrayToAudit, 0, folderPath)
+    runLighthouse(urlArrayToAudit, 0, folderPath, host)
     // recursivePromise(urlArrayToAudit, folderPath)
 };
 
@@ -54,7 +61,7 @@ function recursivePromise(urlArrayToAudit, folderPath, idx=0){
 }
 
 // Returns a promise of the next index after completion
-async function runLighthouse(urlArray, idx, folderPath){
+async function runLighthouse(urlArray, idx, folderPath, host){
     console.log(chalk.green.bold(`Running ${idx+1} of ${urlArray.length}`));
     let url = urlArray[idx]
     return new Promise(async (resolve, reject) => {
@@ -94,7 +101,7 @@ async function runLighthouse(urlArray, idx, folderPath){
 }
 
 
-async function aggregateUrlsFromSite(url, level=0){
+async function aggregateUrlsFromSite(url, host, level=0){
     let urlsToAudit = new Set()
     let html = await axios.get(url)
     addURLToSet(findURLS(html.data), host, urlsToAudit)
@@ -119,7 +126,7 @@ function findURLS(htmlString){
     return array
 }
 
-function addURLToSet(urlArray, host='lulzbot.com', urlSet){
+function addURLToSet(urlArray, host, urlSet){
     //remove href=" && "$
     let httpsRegex = /https:\/\//
     urlArray.forEach(url => {
