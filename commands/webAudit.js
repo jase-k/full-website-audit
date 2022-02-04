@@ -20,6 +20,11 @@ export default async function webAudit(url){
     fs.mkdir(`./${folderPath}/html/`, {recursive:true}, (err) => {
         if (err) throw err;
         console.log(chalk.green.bold(`directory ./${folderPath}/html/ successfully created`))
+        
+        // Creating the Main Overview File
+        let mainData = `URL Parsed, Final URL Inspected, Performance, SEO, Accessibility, Best Practices \n`
+        fs.writeFileSync(`${folderPath}/results.csv`, mainData);
+        console.log(chalk.green("Created main file at: " + folderPath + "results.csv"))
     })
 
 
@@ -68,14 +73,20 @@ async function runLighthouse(urlArray, idx, folderPath){
             
             
             // `.lhr` is the Lighthouse Result as a JS object
+            let { performance, seo, accessibility } = runnerResult.lhr.categories 
+            let bestPractices = runnerResult.lhr.categories['best-practices'] 
             console.log('Report is done for', runnerResult.lhr.finalUrl);
-            console.log('Performance score was', runnerResult.lhr.categories.performance.score * 100);
-            console.log('SEO score was', runnerResult.lhr.categories.seo.score * 100);
-            console.log('Best Practices score was', runnerResult.lhr.categories.bestPractices.score * 100);
-            console.log('Accessibility score was', runnerResult.lhr.categories.accessibility.score * 100);
+            console.log('Performance score was', performance.score * 100);
+            console.log('SEO score was', seo.score * 100);
+            console.log('Best Practices score was', bestPractices.score * 100);
+            console.log('Accessibility score was', accessibility.score * 100);
             console.log(`Details at: ./${folderPath}/html/${idx}.html`)
             chrome.kill().then(()=>{
                 fs.writeFileSync(`${folderPath}/html/${idx}.html`, reportHtml);
+                let mainData = `${url}, ${runnerResult.lhr.finalURL}, ${performance.score}, ${seo.score}, ${accessibility.score},  ${bestPractices.score} \n`
+// Adds Summary Details to main csv file                
+                let CreateFiles = fs.createWriteStream(`${folderPath}/results.csv`, {flags:'a'})
+                CreateFiles.write(mainData);
                 resolve(idx + 1);
             })
             .catch(err => reject(err));
