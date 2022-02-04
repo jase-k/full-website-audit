@@ -17,9 +17,9 @@ export default async function webAudit(url){
     let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDay()}(${date.getHours()}-${date.getMinutes()})`
     console.log(chalk.yellow.bold('Web Audit Tool is ready for Use!' + folderPath))
     console.log('creating folder for html results: ')
-    fs.mkdir(`./${folderPath}`, {recursive:true}, (err) => {
+    fs.mkdir(`./${folderPath}/html/`, {recursive:true}, (err) => {
         if (err) throw err;
-        console.log(chalk.green.bold(`directory ./${folderPath} successfully created`))
+        console.log(chalk.green.bold(`directory ./${folderPath}/html/ successfully created`))
     })
 
 
@@ -34,8 +34,10 @@ export default async function webAudit(url){
     
     //converting urlSet into an Array to use a reducer on 
     let urlArrayToAudit = Array.from(urlSet)
-
-    recursivePromise(urlArrayToAudit, folderPath)
+    
+    // Comment this in to test with only one url
+    runLighthouse(urlArrayToAudit, 0, folderPath)
+    // recursivePromise(urlArrayToAudit, folderPath)
 };
 
 function recursivePromise(urlArrayToAudit, folderPath, idx=0){
@@ -52,7 +54,7 @@ async function runLighthouse(urlArray, idx, folderPath){
     let url = urlArray[idx]
     return new Promise(async (resolve, reject) => {
         const chrome = await chromeLauncher.launch({chromeFlags: ['--headless']});
-        const options = {output: 'html', onlyCategories: ['performance'], port: chrome.port};
+        const options = {output: 'html', onlyCategories: ['performance', 'seo', 'best-practices', 'accessibility'], port: chrome.port};
     
             if(url[0] == '/'){
                 url = host+url
@@ -68,9 +70,12 @@ async function runLighthouse(urlArray, idx, folderPath){
             // `.lhr` is the Lighthouse Result as a JS object
             console.log('Report is done for', runnerResult.lhr.finalUrl);
             console.log('Performance score was', runnerResult.lhr.categories.performance.score * 100);
-            console.log(`Details at: ./${folderPath}/${idx}.html`)
+            console.log('SEO score was', runnerResult.lhr.categories.seo.score * 100);
+            console.log('Best Practices score was', runnerResult.lhr.categories.bestPractices.score * 100);
+            console.log('Accessibility score was', runnerResult.lhr.categories.accessibility.score * 100);
+            console.log(`Details at: ./${folderPath}/html/${idx}.html`)
             chrome.kill().then(()=>{
-                fs.writeFileSync(`${folderPath}/${idx}.html`, reportHtml);
+                fs.writeFileSync(`${folderPath}/html/${idx}.html`, reportHtml);
                 resolve(idx + 1);
             })
             .catch(err => reject(err));
