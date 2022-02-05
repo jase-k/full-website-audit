@@ -10,19 +10,18 @@ import { resourceUsage }  from 'process';
 import { resolve } from 'path';
 
 
-export default async function webAudit({url}){
-    if (!url){
-        console.log(chalk.red.bold("url is required specify url by -u or --url"))
+export default async function webAudit({host, subdomainPath, levels, entrance }){
+    if (!host){
+        console.log(chalk.red.bold("host is required specify url by -h or --host"))
         return
     }
     
-    let host = url //Could change this to an option later to allow for an entrance domain and a parent domain to accomodate subdomains
+    // let host = url 
 
     let date = new Date()
+
     //Creates Unique Folder Name
     let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDay()}(${date.getHours()}-${date.getMinutes()})`
-    console.log(chalk.yellow.bold('Web Audit Tool is ready for Use!' + folderPath))
-    console.log('creating folder for html results: ')
     fs.mkdir(`./${folderPath}/html/`, {recursive:true}, (err) => {
         if (err) throw err;
         console.log(chalk.green.bold(`directory ./${folderPath}/html/ successfully created`))
@@ -111,8 +110,13 @@ async function aggregateUrlsFromSite(url, host,  level=0){
         if(indexedUrlArray[counter][0] == '/'){
             indexedUrlArray[counter] = host+indexedUrlArray[counter]
         }
-        let html = await axios.get(indexedUrlArray[counter])
-        addURLToSet(findURLS(html.data), host, urlsToAudit)
+        try{
+            let html = await axios.get(indexedUrlArray[counter])
+            addURLToSet(findURLS(html.data), host, urlsToAudit)
+        }
+        catch{
+            console.log(chalk.red.bold("WARNING: Found URL: "+ indexedUrlArray[counter]+ "but find any data"))
+        }
         counter++
     }
     return urlsToAudit
@@ -126,8 +130,10 @@ function removeHeader(htmlString){
 
 function findURLS(htmlString){
     htmlString = removeHeader(htmlString)
+    fs.writeFileSync('test/html.html', htmlString)
     let regex = /href=".+?"/g
     let array = [ ...htmlString.matchAll(regex)]
+    fs.writeFileSync('test/array.txt', array.join(", "))
     return array
 }
 
