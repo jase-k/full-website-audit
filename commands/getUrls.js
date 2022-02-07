@@ -117,9 +117,7 @@ function parseUrlsFromHtml(htmlString){
 function addURLToSet(urlArray, validDomains, urlSet, host){
     //remove href=" && "$
     let httpsRegex = /https:\/\//
-    console.log("Valid Domains: ", validDomains)
     var domainRegex = new RegExp(''+ validDomains.join('|') +'', 'i');
-    console.log("Regex Expression: ", domainRegex)
     
     urlArray.forEach(url => {
         let finalURL = url[0].substring(6, url[0].length-1)
@@ -128,7 +126,7 @@ function addURLToSet(urlArray, validDomains, urlSet, host){
             urlSet.add(finalURL)
         } else if (finalURL[0] == "/"){
             finalURL = host + finalURL
-            console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
+            // console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
             urlSet.add(finalURL)
         }
     })
