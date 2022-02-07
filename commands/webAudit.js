@@ -10,22 +10,16 @@ import { resourceUsage }  from 'process';
 import { resolve } from 'path';
 
 
-export default async function webAudit({host, subdomainPath, levels=0, entrance }){
-    if (!host){
-        console.log(chalk.red.bold("host is required specify url by -h or --host"))
+export default async function webAudit({url, urlListPath }){
+    if (!url && !urlListPath){
+        console.log(chalk.red.bold("a url or urlListPath is required! specify url by -u or urlListPath by -ul"))
         return
-    }
-    if(!entrance){
-        var url = host
-        console.log(chalk.gray("no entrance url provided, using host url as starting url."))
-    } else {
-        url = entrance
     }
 
     let date = new Date()
 
     //Creates Unique Folder Name
-    let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDay()}(${date.getHours()}-${date.getMinutes()})`
+    let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDay()}(${date.getHours()}-${date.getMinutes()})audit`
     fs.mkdir(`data/${folderPath}/html/`, {recursive:true}, (err) => {
         if (err) throw err;
         console.log(chalk.green.bold(`directory data/${folderPath}/html/ successfully created`))    
@@ -38,21 +32,23 @@ export default async function webAudit({host, subdomainPath, levels=0, entrance 
     
 
 
-    console.log(chalk.yellow("Searching for URLS to parse: "))
-    let urlSet = await aggregateUrlsFromSite(url, host);
+    //Write List of Arrays to csv Document
+    let urlArrayToAudit = []
+    try{
+        domainList = fs.readFileSync(urlListPath, {encoding: 'utf8'})
+        urlArrayToAudit = domainList.split(",")
+        console.log(chalk.green.bold("urlList.csv file found, will search these domains: " + domainList))
+    }
+    catch (e) {
+        //Outputs what went wrong if user was trying to use a URL Path else outputs text confirming only a single url will be auditted
+        if(urlListPath){
+            console.log(e)
+        }
+        console.log(chalk.yellow.bold("No urlList.csv document found, will audit " + url + "only"))
+    }
 
-    console.log(chalk.red.bold(`You are about to audit ${urlSet.size} urls... continue?`))
-    // to check the integrating of the urls generated
-    urlSet.forEach(url => {
-        console.log(chalk.green(url))
-    })
-    
-    //converting urlSet into an Array to use a reducer on 
-    let urlArrayToAudit = Array.from(urlSet)
-    
-    // Comment this in to test with only one url
-    runLighthouse(urlArrayToAudit, 0, folderPath, host)
-    // recursivePromise(urlArrayToAudit, folderPath)
+   
+    recursivePromise(urlArrayToAudit, folderPath)
 };
 
 function recursivePromise(urlArrayToAudit, folderPath, idx=0){
@@ -64,16 +60,13 @@ function recursivePromise(urlArrayToAudit, folderPath, idx=0){
 }
 
 // Returns a promise of the next index after completion
-async function runLighthouse(urlArray, idx, folderPath, host){
+async function runLighthouse(urlArray, idx, folderPath){
     console.log(chalk.green.bold(`Running ${idx+1} of ${urlArray.length}`));
     let url = urlArray[idx]
     return new Promise(async (resolve, reject) => {
         const chrome = await chromeLauncher.launch({chromeFlags: ['--headless']});
         const options = {output: 'html', onlyCategories: ['performance', 'seo', 'best-practices', 'accessibility'], port: chrome.port};
-    
-            if(url[0] == '/'){
-                url = host+url
-            }
+
     
             console.log("Auditing: ", url)
             const runnerResult = await lighthouse(url, options);
@@ -94,63 +87,12 @@ async function runLighthouse(urlArray, idx, folderPath, host){
             chrome.kill().then(()=>{
                 fs.writeFileSync(`data/${folderPath}/html/${idx}.html`, reportHtml);
                 fs.writeFileSync(`data/${folderPath}/html/runnerResult.txt`, JSON.stringify(runnerResult));
-                let mainData = `${url}, ${runnerResult.lhr.finalURL}, ${performance.score}, ${seo.score}, ${accessibility.score},  ${bestPractices.score} \n`
+                let mainData = `${url}, ${runnerResult.lhr.finalURL}, ${performance.score * 100}, ${seo.score * 100}, ${accessibility.score * 100},  ${bestPractices.score * 100} \n`
 // Adds Summary Details to main csv file                
                 let CreateFiles = fs.createWriteStream(`data/${folderPath}/results.csv`, {flags:'a'})
                 CreateFiles.write(mainData);
                 resolve(idx + 1);
             })
             .catch(err => reject(err));
-    })
-}
-
-
-async function aggregateUrlsFromSite(url, host,  level=0){
-    let urlsToAudit = new Set()
-    urlsToAudit.add(url)
-    let counter = 0
-    //recursively search the rest of the site
-    while(urlsToAudit.size > counter){
-        let indexedUrlArray = Array.from(urlsToAudit)
-        console.log(chalk.green(indexedUrlArray.length + " / "+ counter))
-        if(indexedUrlArray[counter][0] == '/'){
-            indexedUrlArray[counter] = host+indexedUrlArray[counter]
-        }
-        try{
-            let html = await axios.get(indexedUrlArray[counter])
-            addURLToSet(findURLS(html.data), host, urlsToAudit)
-        }
-        catch{
-            console.log(chalk.red.bold("WARNING: Found URL: "+ indexedUrlArray[counter]+ " but find any data"))
-        }
-        counter++
-    }
-    return urlsToAudit
-}
-
-function removeHeader(htmlString){
-    let regex = /<body/
-    let bodyIndex = htmlString.search(regex)
-    return htmlString.substring(bodyIndex)
-}
-
-function findURLS(htmlString){
-    htmlString = removeHeader(htmlString)
-    fs.writeFileSync('test/html.html', htmlString)
-    let regex = /href=".+?"/g
-    let array = [ ...htmlString.matchAll(regex)]
-    fs.writeFileSync('test/array.txt', array.join(", "))
-    return array
-}
-
-function addURLToSet(urlArray, host, urlSet){
-    //remove href=" && "$
-    let httpsRegex = /https:\/\//
-    urlArray.forEach(url => {
-        let finalURL = url[0].substring(6, url[0].length-1)
-        if((finalURL.match(httpsRegex) && finalURL.match(host)) || finalURL[0] == "/"){
-            urlSet.add(finalURL)
-        } else{
-        }
     })
 }
