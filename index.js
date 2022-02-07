@@ -27,8 +27,8 @@ program
     .description('audit your website with lighthouse')
     .option('-u, --url <string>', 'enter the url of the website you want to audit')
     .option('-ul, --urlListPath <string>', 'enter the path of a .csv file of the domains you want included in the web audit')
-    .option('-l, --levels <integer>', 'enter the number of levels deep you want to crawl. (0= infinity; Default is 0)')
     .option('--detailed <boolean>', 'more data provided on final csv file')
+    .option('--removeErrors <boolean>', 'remove runtime errors from report')
     .action(webAudit)
 
 program.parse()

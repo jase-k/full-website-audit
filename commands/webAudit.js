@@ -6,7 +6,7 @@ import lighthouse  from 'lighthouse';
 import chromeLauncher  from 'chrome-launcher';
 
 
-export default async function webAudit({url, urlListPath, levels, detailed }){
+export default async function webAudit({url, urlListPath, detailed, removeErrors }){
     if (!url && !urlListPath){
         console.log(chalk.red.bold("a url or urlListPath is required! specify url by -u or urlListPath by -ul"))
         return
@@ -16,14 +16,14 @@ export default async function webAudit({url, urlListPath, levels, detailed }){
 
     //Creates Unique Folder Name
     let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDay()}(${date.getHours()}-${date.getMinutes()})audit`
-    fs.mkdir(`data/${folderPath}/html/`, {recursive:true}, (err) => {
+    fs.mkdir(`data/${folderPath}/results/`, {recursive:true}, (err) => {
         if (err) throw err;
-        console.log(chalk.green.bold(`directory data/${folderPath}/html/ successfully created`))    
+        console.log(chalk.green.bold(`directory data/${folderPath}/results/ successfully created`))    
         
         // Creating the Main Overview File
         let mainData = ''
         if(detailed){
-            mainData = `URL Parsed, Error?,Overall Performance, Time to Interaction, Need Next Gen Images?, Final URL Inspected,  Overall SEO, Meta Data Test, Crawlable Link Test, Image Alt Test, Accessibility, Best Practices \n`
+            mainData = `URL Parsed, Error?,Final URL Inspected,Overall Performance, Time to Interaction, Need Next Gen Images?,   Overall SEO, Meta Data Test, Crawlable Link Test, Image Alt Test, Accessibility, Best Practices \n`
         } else {
             mainData = `URL Parsed, Error?, Final URL Inspected, Performance, SEO, Accessibility, Best Practices \n`
         }
@@ -49,19 +49,19 @@ export default async function webAudit({url, urlListPath, levels, detailed }){
     }
 
    
-    recursivePromise(urlArrayToAudit, folderPath, detailed)
+    recursivePromise(urlArrayToAudit, folderPath, detailed, removeErrors)
 };
 
-function recursivePromise(urlArrayToAudit, folderPath, detailed, idx=0){
+function recursivePromise(urlArrayToAudit, folderPath, detailed, removeErrors, idx=0){
     if(urlArrayToAudit.length == idx){
         return
     }
-        runLighthouse(urlArrayToAudit, idx, folderPath, detailed)
-        .then(result => recursivePromise(urlArrayToAudit, folderPath, detailed, result))            
+        runLighthouse(urlArrayToAudit, idx, folderPath, detailed, removeErrors)
+        .then(result => recursivePromise(urlArrayToAudit, folderPath, detailed, removeErrors, result))            
 }
 
 // Returns a promise of the next index after completion
-async function runLighthouse(urlArray, idx, folderPath, detailed){
+async function runLighthouse(urlArray, idx, folderPath, detailed, removeErrors){
     console.log(chalk.green.bold(`Running ${idx+1} of ${urlArray.length}`));
     let url = urlArray[idx]
     return new Promise(async (resolve, reject) => {
@@ -71,23 +71,11 @@ async function runLighthouse(urlArray, idx, folderPath, detailed){
     
             console.log("Auditing: ", url)
             const runnerResult = await lighthouse(url, options);
-          
+
             // `.report` is the HTML report as a string
             const reportHtml = runnerResult.report;
             
-            
-            // `.lhr` is the Lighthouse Result as a JS object
-            let { performance, seo, accessibility } = runnerResult.lhr.categories 
-            let bestPractices = runnerResult.lhr.categories['best-practices'] 
-            console.log('Report is done for', runnerResult.lhr.finalUrl);
-            consoleScore(performance.score, "Performance")
-            consoleScore(seo.score, "SEO")
-            consoleScore(bestPractices.score, "Best Practices")
-            consoleScore(accessibility.score, "Accessibility")
-            console.log(`Details at: ./data/${folderPath}/html/${idx}.html`)
             chrome.kill().then(()=>{
-                fs.writeFileSync(`data/${folderPath}/html/${idx}.html`, reportHtml);
-                fs.writeFileSync(`data/${folderPath}/html/${idx}runnerResult.txt`, JSON.stringify(runnerResult));
                 let results = runnerResult.lhr
                 let runtimeError = results.runtimeError ? "YES" : "no"
                 let mainData = ""
@@ -95,12 +83,33 @@ async function runLighthouse(urlArray, idx, folderPath, detailed){
                 if(detailed){
                     mainData = formatDetailedAudit(results)
                 } else {
-                    mainData = `${url},  ${runtimeError}, ${results.finalURL}, ${performance.score * 100}, ${seo.score * 100}, ${accessibility.score * 100},  ${bestPractices.score * 100} \n`
+                    mainData = `${url},  ${runtimeError}, ${results.finalUrl}, ${performance.score * 100}, ${seo.score * 100}, ${accessibility.score * 100},  ${bestPractices.score * 100} \n`
                 }
-// Adds Summary Details to main csv file                
-                let CreateFiles = fs.createWriteStream(`data/${folderPath}/results.csv`, {flags:'a'})
-                CreateFiles.write(mainData);
-                resolve(idx + 1);
+
+                if(runtimeError == "YES" && removeErrors ){
+                    console.log(chalk.rgb(255,255,0)(`${results.requestedUrl} threw a RunTime Error, skipping and going to the next url`))
+                    resolve(idx + 1);
+                }  else {
+                    
+                    fs.writeFileSync(`data/${folderPath}/results/${idx}.html`, reportHtml);
+                    //Uncomment below for a json file in the same folder
+                    fs.writeFileSync(`data/${folderPath}/results/${idx}.json`, JSON.stringify(runnerResult));
+
+                    // `.lhr` is the Lighthouse Result as a JS object
+                    let { performance, seo, accessibility } = runnerResult.lhr.categories 
+                    let bestPractices = runnerResult.lhr.categories['best-practices'] 
+                    console.log('Report is done for', runnerResult.lhr.finalUrl);
+                    consoleScore(performance.score, "Performance")
+                    consoleScore(seo.score, "SEO")
+                    consoleScore(bestPractices.score, "Best Practices")
+                    consoleScore(accessibility.score, "Accessibility")
+                    console.log(`Details at: ./data/${folderPath}/results/${idx}.html`)
+
+                    // Adds Summary Details to main csv file
+                    let CreateFiles = fs.createWriteStream(`data/${folderPath}/results.csv`, {flags:'a'})
+                    CreateFiles.write(mainData);
+                    resolve(idx + 1);
+                }              
             })
             .catch(err => reject(err));
     })
@@ -108,14 +117,16 @@ async function runLighthouse(urlArray, idx, folderPath, detailed){
 
 function formatDetailedAudit(auditResult){
     let imageError, imageAlt, crawlableLinks, documentTitle = ""
-    let runtimeError = results.runtimeError ? "YES" : "no"
+    let runtimeError = auditResult.runtimeError ? "YES" : "no"
+    let { performance, seo, accessibility } = auditResult.categories 
+    let bestPractices = auditResult.categories
 
     if(auditResult.audits["modern-image-formats"].score == 0 || auditResult.audits["uses-responsive-images"].score == 0  ){
         imageError = "FAIL"
     } else {
         imageError = "PASS"
     }
-    if(auditResult.audits[" image-alt"].score == 0 ){
+    if(auditResult.audits["image-alt"].score == 0 ){
         imageAlt = "FAIL"
     } else {
         imageAlt = "PASS"
@@ -130,9 +141,9 @@ function formatDetailedAudit(auditResult){
     } else {
         documentTitle = "PASS"
     }
-    let timeToInteract = Math.round((results.audits.interactive.numericValue / 1000)*100/100)
+    let timeToInteract = Math.round((auditResult.audits.interactive.numericValue / 1000)*100/100)
 
-    let mainData = `${url},  ${runtimeError}, ${performance.score * 100}, ${timeToInteract}, ${imageError}, ${results.finalURL},  ${seo.score * 100}, ${documentTitle}, ${crawlableLinks}, ${imageAlt}, ${accessibility.score * 100},  ${bestPractices.score * 100} \n`
+    return `${auditResult.requestedUrl},  ${runtimeError}, ${auditResult.finalUrl}, ${performance.score * 100}, ${timeToInteract}, ${imageError}, ${seo.score * 100}, ${documentTitle}, ${crawlableLinks}, ${imageAlt}, ${accessibility.score * 100},  ${bestPractices.score * 100} \n`
 }
 
 function consoleScore(score, scoreName){
