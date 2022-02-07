@@ -50,6 +50,10 @@ export default async function getUrls({host, subdomainPath='./validurls.txt', le
 };
 
 function checkForUrls(url, host, folderPath, validDomains, urlsToAudit= new Set().add(url), levels=0, counter=0){
+    if(counter%10 == 0 ){
+        fs.writeFileSync(`data/${folderPath}/urlList/urlList.csv`, Array.from(urlsToAudit).join(','))
+        console.log(chalk.green.bold(`You found ${urlsToAudit.size} url/s saved in ./data/${folderPath}/urlList/urlList.csv`))
+    }
     if(urlsToAudit.size < counter + 1){
         //Overwrite List of Arrays to csv Document
         fs.writeFileSync(`data/${folderPath}/urlList/urlList.csv`, Array.from(urlsToAudit).join(','))
@@ -134,7 +138,14 @@ function addURLToSet(urlArray, validDomains, urlSet, host){
     var domainRegex = new RegExp(''+ validDomains.join('|') +'', 'i');
     urlArray.forEach(url => {
         let finalURL = url[0].substring(6, url[0].length-1)
-        if(finalURL.match(/\?|\#/) || isFile(finalURL)){
+        //if url contains # or ? chop that portion of the url off
+        let chopOffPoint = finalURL.search(/\?|\#/)
+        if(chopOffPoint != -1){
+            console.log(chalk.blue("chopped: ", finalURL))
+            finalURL = finalURL.substring(0, chopOffPoint)
+            console.log(chalk.blue("to: ", finalURL))
+        }
+        if(isFile(finalURL)){
             //do nothing
         } else if((finalURL.match(httpsRegex) && finalURL.match(domainRegex))){
             // console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
@@ -150,9 +161,9 @@ function addURLToSet(urlArray, validDomains, urlSet, host){
 function isFile(url){
     let splitUrl = url.split(".")
     let endOfUrl = splitUrl[splitUrl.length - 1]
-    if(endOfUrl.length > 5 || endOfUrl.match(/com|org|io|edu|net/i)){
+    if(endOfUrl.length > 5 || endOfUrl.match(/com|org|io|edu|net|\//i)){
         return false
     }
-    console.log("FALSE: ", endOfUrl)
+    console.log(chalk.rgb(255,255,0)("skipping file: ", url))
     return true
 }
