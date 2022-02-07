@@ -28,7 +28,7 @@ program
     .option('-u, --url <string>', 'enter the url of the website you want to audit')
     .option('-ul, --urlListPath <string>', 'enter the path of a .csv file of the domains you want included in the web audit')
     .option('-l, --levels <integer>', 'enter the number of levels deep you want to crawl. (0= infinity; Default is 0)')
-    .option('-e, --entrance <string>', 'enter the url of the page you want to start the crawl from')
+    .option('--detailed <boolean>', 'more data provided on final csv file')
     .action(webAudit)
 
 program.parse()

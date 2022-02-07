@@ -4,13 +4,9 @@ import chalk from'chalk';
 import fs  from 'fs';
 import lighthouse  from 'lighthouse';
 import chromeLauncher  from 'chrome-launcher';
-import axios from 'axios'
-
-import { resourceUsage }  from 'process';
-import { resolve } from 'path';
 
 
-export default async function webAudit({url, urlListPath }){
+export default async function webAudit({url, urlListPath, levels, detailed }){
     if (!url && !urlListPath){
         console.log(chalk.red.bold("a url or urlListPath is required! specify url by -u or urlListPath by -ul"))
         return
@@ -25,7 +21,12 @@ export default async function webAudit({url, urlListPath }){
         console.log(chalk.green.bold(`directory data/${folderPath}/html/ successfully created`))    
         
         // Creating the Main Overview File
-        let mainData = `URL Parsed, Final URL Inspected, Performance, SEO, Accessibility, Best Practices \n`
+        let mainData = ''
+        if(detailed){
+            mainData = `URL Parsed, Error?,Overall Performance, Time to Interaction, Need Next Gen Images?, Final URL Inspected,  Overall SEO, Meta Data Test, Crawlable Link Test, Image Alt Test, Accessibility, Best Practices \n`
+        } else {
+            mainData = `URL Parsed, Error?, Final URL Inspected, Performance, SEO, Accessibility, Best Practices \n`
+        }
         fs.writeFileSync(`data/${folderPath}/results.csv`, mainData);
         console.log(chalk.green("Created main file at: " + folderPath + "results.csv"))
     })
@@ -35,7 +36,7 @@ export default async function webAudit({url, urlListPath }){
     //Write List of Arrays to csv Document
     let urlArrayToAudit = []
     try{
-        domainList = fs.readFileSync(urlListPath, {encoding: 'utf8'})
+        let domainList = fs.readFileSync(urlListPath, {encoding: 'utf8'})
         urlArrayToAudit = domainList.split(",")
         console.log(chalk.green.bold("urlList.csv file found, will search these domains: " + domainList))
     }
@@ -48,19 +49,19 @@ export default async function webAudit({url, urlListPath }){
     }
 
    
-    recursivePromise(urlArrayToAudit, folderPath)
+    recursivePromise(urlArrayToAudit, folderPath, detailed)
 };
 
-function recursivePromise(urlArrayToAudit, folderPath, idx=0){
+function recursivePromise(urlArrayToAudit, folderPath, detailed, idx=0){
     if(urlArrayToAudit.length == idx){
         return
     }
-        runLighthouse(urlArrayToAudit, idx, folderPath)
-        .then(result => recursivePromise(urlArrayToAudit, folderPath, result))            
+        runLighthouse(urlArrayToAudit, idx, folderPath, detailed)
+        .then(result => recursivePromise(urlArrayToAudit, folderPath, detailed, result))            
 }
 
 // Returns a promise of the next index after completion
-async function runLighthouse(urlArray, idx, folderPath){
+async function runLighthouse(urlArray, idx, folderPath, detailed){
     console.log(chalk.green.bold(`Running ${idx+1} of ${urlArray.length}`));
     let url = urlArray[idx]
     return new Promise(async (resolve, reject) => {
@@ -79,15 +80,23 @@ async function runLighthouse(urlArray, idx, folderPath){
             let { performance, seo, accessibility } = runnerResult.lhr.categories 
             let bestPractices = runnerResult.lhr.categories['best-practices'] 
             console.log('Report is done for', runnerResult.lhr.finalUrl);
-            console.log('Performance score was', performance.score * 100);
-            console.log('SEO score was', seo.score * 100);
-            console.log('Best Practices score was', bestPractices.score * 100);
-            console.log('Accessibility score was', accessibility.score * 100);
+            consoleScore(performance.score, "Performance")
+            consoleScore(seo.score, "SEO")
+            consoleScore(bestPractices.score, "Best Practices")
+            consoleScore(accessibility.score, "Accessibility")
             console.log(`Details at: ./data/${folderPath}/html/${idx}.html`)
             chrome.kill().then(()=>{
                 fs.writeFileSync(`data/${folderPath}/html/${idx}.html`, reportHtml);
-                fs.writeFileSync(`data/${folderPath}/html/runnerResult.txt`, JSON.stringify(runnerResult));
-                let mainData = `${url}, ${runnerResult.lhr.finalURL}, ${performance.score * 100}, ${seo.score * 100}, ${accessibility.score * 100},  ${bestPractices.score * 100} \n`
+                fs.writeFileSync(`data/${folderPath}/html/${idx}runnerResult.txt`, JSON.stringify(runnerResult));
+                let results = runnerResult.lhr
+                let runtimeError = results.runtimeError ? "YES" : "no"
+                let mainData = ""
+
+                if(detailed){
+                    mainData = formatDetailedAudit(results)
+                } else {
+                    mainData = `${url},  ${runtimeError}, ${results.finalURL}, ${performance.score * 100}, ${seo.score * 100}, ${accessibility.score * 100},  ${bestPractices.score * 100} \n`
+                }
 // Adds Summary Details to main csv file                
                 let CreateFiles = fs.createWriteStream(`data/${folderPath}/results.csv`, {flags:'a'})
                 CreateFiles.write(mainData);
@@ -95,4 +104,43 @@ async function runLighthouse(urlArray, idx, folderPath){
             })
             .catch(err => reject(err));
     })
+}
+
+function formatDetailedAudit(auditResult){
+    let imageError, imageAlt, crawlableLinks, documentTitle = ""
+    let runtimeError = results.runtimeError ? "YES" : "no"
+
+    if(auditResult.audits["modern-image-formats"].score == 0 || auditResult.audits["uses-responsive-images"].score == 0  ){
+        imageError = "FAIL"
+    } else {
+        imageError = "PASS"
+    }
+    if(auditResult.audits[" image-alt"].score == 0 ){
+        imageAlt = "FAIL"
+    } else {
+        imageAlt = "PASS"
+    }
+    if(auditResult.audits["crawlable-anchors"].score == 0 ){
+        crawlableLinks = "FAIL"
+    } else {
+        crawlableLinks = "PASS"
+    }
+    if(auditResult.audits["meta-description"].score == 0 || auditResult.audits["document-title"].score == 0  ){
+        documentTitle = "FAIL"
+    } else {
+        documentTitle = "PASS"
+    }
+    let timeToInteract = Math.round((results.audits.interactive.numericValue / 1000)*100/100)
+
+    let mainData = `${url},  ${runtimeError}, ${performance.score * 100}, ${timeToInteract}, ${imageError}, ${results.finalURL},  ${seo.score * 100}, ${documentTitle}, ${crawlableLinks}, ${imageAlt}, ${accessibility.score * 100},  ${bestPractices.score * 100} \n`
+}
+
+function consoleScore(score, scoreName){
+    if(score > 0.9){
+        console.log(chalk.green(`${scoreName} was ${score}`))
+    } else if (score > 0.6){
+        console.log(chalk.rgb(255,255,0)(`${scoreName} was ${score}`))
+    } else {
+        console.log(chalk.red(`${scoreName} was ${score}`))
+    }
 }
