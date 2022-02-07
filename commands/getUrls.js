@@ -132,10 +132,11 @@ function addURLToSet(urlArray, validDomains, urlSet, host){
     //remove href=" && "$
     let httpsRegex = /https:\/\//
     var domainRegex = new RegExp(''+ validDomains.join('|') +'', 'i');
-
     urlArray.forEach(url => {
         let finalURL = url[0].substring(6, url[0].length-1)
-        if((finalURL.match(httpsRegex) && finalURL.match(domainRegex))){
+        if(finalURL.match(/\?|\#/) || isFile(finalURL)){
+            //do nothing
+        } else if((finalURL.match(httpsRegex) && finalURL.match(domainRegex))){
             // console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
             urlSet.add(finalURL)
         } else if (finalURL[0] == "/"){
@@ -144,4 +145,14 @@ function addURLToSet(urlArray, validDomains, urlSet, host){
             urlSet.add(finalURL)
         }
     })
+}
+
+function isFile(url){
+    let splitUrl = url.split(".")
+    let endOfUrl = splitUrl[splitUrl.length - 1]
+    if(endOfUrl.length > 5 || endOfUrl.match(/com|org|io|edu|net/i)){
+        return false
+    }
+    console.log("FALSE: ", endOfUrl)
+    return true
 }
