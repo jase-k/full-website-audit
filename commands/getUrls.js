@@ -73,9 +73,12 @@ function aggregateUrlsFromSite(url, host, folderPath, validDomains, urlsToAudit=
 
         // Wait for window.onload before doing stuff.
         Page.loadEventFired(async () => {
-            const js = "document.querySelector('html').outerHTML";
+            const getHtml = "document.querySelector('html').outerHTML";
+            const getOrigin = "window.location.origin";
             // Evaluate the JS expression in the page.
-            const result = await Runtime.evaluate({expression: js});
+            const result = await Runtime.evaluate({expression: getHtml});
+            const originResult = await Runtime.evaluate({expression: getOrigin});
+
             const htmlData = result.result.value
             fs.writeFileSync(`data/${folderPath}/urlList/test.html`, htmlData);
 
@@ -83,7 +86,7 @@ function aggregateUrlsFromSite(url, host, folderPath, validDomains, urlsToAudit=
             let urlArray = parseUrlsFromHtml(htmlData)
 
             //add urls to urlsToAudit
-            addURLToSet(urlArray, validDomains, urlsToAudit, host)
+            addURLToSet(urlArray, validDomains, urlsToAudit, originResult.result.value)
 
             protocol.close();
             chrome.kill().then(() => {
@@ -121,11 +124,11 @@ function addURLToSet(urlArray, validDomains, urlSet, host){
     urlArray.forEach(url => {
         let finalURL = url[0].substring(6, url[0].length-1)
         if((finalURL.match(httpsRegex) && finalURL.match(domainRegex))){
-            console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
+            // console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
             urlSet.add(finalURL)
         } else if (finalURL[0] == "/"){
-            console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
             finalURL = host + finalURL
+            console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
             urlSet.add(finalURL)
         }
     })
