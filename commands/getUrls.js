@@ -7,7 +7,7 @@ import CDP from 'chrome-remote-interface';
 
 
 
-export default async function webAudit({host, subdomainPath, levels=0, entrance }){
+export default async function getUrls({host, subdomainPath='./validurls.txt', levels=0, entrance }){
     if (!host){
         console.log(chalk.red.bold("host is required specify url by -h or --host"))
         return
@@ -26,10 +26,22 @@ export default async function webAudit({host, subdomainPath, levels=0, entrance 
     fs.mkdirSync(`data/${folderPath}/urlList/`, {recursive:true})
     console.log(chalk.green.bold(`directory data/${folderPath}/urlList/ successfully created`))    
     
+    //Sets an array of domains that is wanted to add to the list of urls to fetch
+    let validDomains = []
+    validDomains.push(host)
+    try{
+        validDomains = fs.readFileSync('./validurls.txt', {encoding: 'utf8'})
+        validDomains = validDomains.split(",")
+        console.log(chalk.green.bold("validurls file found, will search these domains: " + validDomains))
+    }
+    catch (e) {
+        console.log(chalk.red(e))
+        console.log(chalk.yellow.bold("No validurls.txt document found, only getting a list of the provided host domain!"))
+    }
 
 
     console.log(chalk.yellow("Searching for URLS to parse: "))
-    let urlSet = await aggregateUrlsFromSite(url, host, folderPath);
+    let urlSet = await aggregateUrlsFromSite(url, host, folderPath, validDomains);
 
     console.log(chalk.red.bold(`You are about to audit ${urlSet.size} urls... continue?`))
 
@@ -40,7 +52,7 @@ export default async function webAudit({host, subdomainPath, levels=0, entrance 
 
 
 
-function aggregateUrlsFromSite(url, host, folderPath, urlsToAudit= new Set().add(url), levels=0, counter=0){
+function aggregateUrlsFromSite(url, host, folderPath, validDomains, urlsToAudit= new Set().add(url), levels=0, counter=0){
     return new Promise(async (resolve, reject) => {
         if(urlsToAudit.size < counter){
             resolve(urlsToAudit)
@@ -71,7 +83,7 @@ function aggregateUrlsFromSite(url, host, folderPath, urlsToAudit= new Set().add
             let urlArray = parseUrlsFromHtml(htmlData)
 
             //add urls to urlsToAudit
-            addURLToSet(urlArray, host, urlsToAudit)
+            addURLToSet(urlArray, validDomains, urlsToAudit, host)
 
             protocol.close();
             chrome.kill().then(() => {
@@ -79,7 +91,7 @@ function aggregateUrlsFromSite(url, host, folderPath, urlsToAudit= new Set().add
                 //wait 0.5 second so chrome can run again without interferance
                 setTimeout(() => {
                     counter++
-                    aggregateUrlsFromSite(url, host, folderPath, urlsToAudit, levels, counter)
+                    aggregateUrlsFromSite(url, host, folderPath, validDomains, urlsToAudit, levels, counter)
                 }, 250)
             })
         })
@@ -94,24 +106,26 @@ function removeHeader(htmlString){
 
 function parseUrlsFromHtml(htmlString){
     htmlString = removeHeader(htmlString)
-    fs.writeFileSync('test/html.html', htmlString)
     let regex = /href=".+?"/g
     let array = [ ...htmlString.matchAll(regex)]
-    fs.writeFileSync('test/array.txt', array.join(", "))
     return array
 }
 
-function addURLToSet(urlArray, host, urlSet){
+function addURLToSet(urlArray, validDomains, urlSet, host){
     //remove href=" && "$
     let httpsRegex = /https:\/\//
+    console.log("Valid Domains: ", validDomains)
+    var domainRegex = new RegExp(''+ validDomains.join('|') +'', 'i');
+    console.log("Regex Expression: ", domainRegex)
+    
     urlArray.forEach(url => {
         let finalURL = url[0].substring(6, url[0].length-1)
-        if((finalURL.match(httpsRegex) && finalURL.match(host))){
-            // console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
+        if((finalURL.match(httpsRegex) && finalURL.match(domainRegex))){
+            console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
             urlSet.add(finalURL)
         } else if (finalURL[0] == "/"){
+            console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
             finalURL = host + finalURL
-            // console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
             urlSet.add(finalURL)
         }
     })
