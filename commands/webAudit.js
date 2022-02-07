@@ -10,27 +10,32 @@ import { resourceUsage }  from 'process';
 import { resolve } from 'path';
 
 
-export default async function webAudit({host, subdomainPath, levels, entrance }){
+export default async function webAudit({host, subdomainPath, levels=0, entrance }){
     if (!host){
         console.log(chalk.red.bold("host is required specify url by -h or --host"))
         return
     }
-    
-    // let host = url 
+    if(!entrance){
+        var url = host
+        console.log(chalk.gray("no entrance url provided, using host url as starting url."))
+    } else {
+        url = entrance
+    }
 
     let date = new Date()
 
     //Creates Unique Folder Name
     let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDay()}(${date.getHours()}-${date.getMinutes()})`
-    fs.mkdir(`./${folderPath}/html/`, {recursive:true}, (err) => {
+    fs.mkdir(`data/${folderPath}/html/`, {recursive:true}, (err) => {
         if (err) throw err;
-        console.log(chalk.green.bold(`directory ./${folderPath}/html/ successfully created`))
+        console.log(chalk.green.bold(`directory data/${folderPath}/html/ successfully created`))    
         
         // Creating the Main Overview File
         let mainData = `URL Parsed, Final URL Inspected, Performance, SEO, Accessibility, Best Practices \n`
-        fs.writeFileSync(`${folderPath}/results.csv`, mainData);
+        fs.writeFileSync(`data/${folderPath}/results.csv`, mainData);
         console.log(chalk.green("Created main file at: " + folderPath + "results.csv"))
     })
+    
 
 
     console.log(chalk.yellow("Searching for URLS to parse: "))
@@ -85,12 +90,13 @@ async function runLighthouse(urlArray, idx, folderPath, host){
             console.log('SEO score was', seo.score * 100);
             console.log('Best Practices score was', bestPractices.score * 100);
             console.log('Accessibility score was', accessibility.score * 100);
-            console.log(`Details at: ./${folderPath}/html/${idx}.html`)
+            console.log(`Details at: ./data/${folderPath}/html/${idx}.html`)
             chrome.kill().then(()=>{
-                fs.writeFileSync(`${folderPath}/html/${idx}.html`, reportHtml);
+                fs.writeFileSync(`data/${folderPath}/html/${idx}.html`, reportHtml);
+                fs.writeFileSync(`data/${folderPath}/html/runnerResult.txt`, JSON.stringify(runnerResult));
                 let mainData = `${url}, ${runnerResult.lhr.finalURL}, ${performance.score}, ${seo.score}, ${accessibility.score},  ${bestPractices.score} \n`
 // Adds Summary Details to main csv file                
-                let CreateFiles = fs.createWriteStream(`${folderPath}/results.csv`, {flags:'a'})
+                let CreateFiles = fs.createWriteStream(`data/${folderPath}/results.csv`, {flags:'a'})
                 CreateFiles.write(mainData);
                 resolve(idx + 1);
             })
@@ -115,7 +121,7 @@ async function aggregateUrlsFromSite(url, host,  level=0){
             addURLToSet(findURLS(html.data), host, urlsToAudit)
         }
         catch{
-            console.log(chalk.red.bold("WARNING: Found URL: "+ indexedUrlArray[counter]+ "but find any data"))
+            console.log(chalk.red.bold("WARNING: Found URL: "+ indexedUrlArray[counter]+ " but find any data"))
         }
         counter++
     }
