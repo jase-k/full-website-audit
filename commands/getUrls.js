@@ -52,12 +52,12 @@ export default async function getUrls({host, subdomainPath='./validurls.txt', le
 function checkForUrls(url, host, folderPath, validDomains, urlsToAudit= new Set().add(url), levels=0, counter=0){
     if(counter%10 == 0 ){
         fs.writeFileSync(`data/${folderPath}/urlList/urlList.csv`, Array.from(urlsToAudit).join(','))
-        console.log(chalk.green.bold(`You found ${urlsToAudit.size} url/s saved in ./data/${folderPath}/urlList/urlList.csv`))
+        console.log(chalk.green.bold(`Checkpoint Saved! ${urlsToAudit.size} url/s saved in ./data/${folderPath}/urlList/urlList.csv`))
     }
     if(urlsToAudit.size < counter + 1){
         //Overwrite List of Arrays to csv Document
         fs.writeFileSync(`data/${folderPath}/urlList/urlList.csv`, Array.from(urlsToAudit).join(','))
-        console.log(chalk.green.bold(`You found ${urlsToAudit.size} url/s saved in ./data/${folderPath}/urlList/urlList.csv`))
+        console.log(chalk.green.bold(`Web Crawl Complete! You found ${urlsToAudit.size} url/s saved in ./data/${folderPath}/urlList/urlList.csv`))
 
     } else {
         aggregateUrlsFromSite(url, host, folderPath, validDomains, urlsToAudit, levels, counter)
@@ -145,7 +145,8 @@ function addURLToSet(urlArray, validDomains, urlSet, host){
             finalURL = finalURL.substring(0, chopOffPoint)
             console.log(chalk.blue("to: ", finalURL))
         }
-        if(isFile(finalURL)){
+        if(isFile(finalURL) || finalURL == ""){
+            console.log(chalk.rgb(255,255,0)(`skipping file: ${url}`))
             //do nothing
         } else if((finalURL.match(httpsRegex) && finalURL.match(domainRegex))){
             // console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
@@ -159,11 +160,16 @@ function addURLToSet(urlArray, validDomains, urlSet, host){
 }
 
 function isFile(url){
-    let splitUrl = url.split(".")
-    let endOfUrl = splitUrl[splitUrl.length - 1]
-    if(endOfUrl.length > 5 || endOfUrl.match(/com|org|io|edu|net|\//i)){
+    if(url == ""){
         return false
     }
-    console.log(chalk.rgb(255,255,0)("skipping file: ", url))
+    let copyUrl = url 
+    let splitUrl = copyUrl.split(".")
+    let endOfUrl = splitUrl[splitUrl.length - 1]
+    
+//if your website has another ending besides the ones listed below, adding it to the regex pattern will prevent any site getting untracked
+    if(endOfUrl.match(/com|org|io|edu|net|\//i)){
+        return false
+    }
     return true
 }
