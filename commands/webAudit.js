@@ -119,7 +119,7 @@ function formatDetailedAudit(auditResult){
     let imageError, imageAlt, crawlableLinks, documentTitle = ""
     let runtimeError = auditResult.runtimeError ? "YES" : "no"
     let { performance, seo, accessibility } = auditResult.categories 
-    let bestPractices = runnerResult.lhr.categories['best-practices'] 
+    let bestPractices = auditResult.categories['best-practices'] 
 
     if(auditResult.audits["modern-image-formats"].score == 0 || auditResult.audits["uses-responsive-images"].score == 0  ){
         imageError = "FAIL"
