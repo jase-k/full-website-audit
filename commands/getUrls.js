@@ -146,7 +146,7 @@ function addURLToSet(urlArray, validDomains, urlSet, host){
         if(isFile(finalURL) || finalURL == ""){
             //do nothing
         } else if((finalURL.match(httpsRegex) && finalURL.match(domainRegex))){
-            // console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
+            console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
             urlSet.add(finalURL)
         } else if (finalURL[0] == "/"){
             finalURL = host + finalURL
