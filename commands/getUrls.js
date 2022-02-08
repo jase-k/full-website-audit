@@ -141,12 +141,9 @@ function addURLToSet(urlArray, validDomains, urlSet, host){
         //if url contains # or ? chop that portion of the url off
         let chopOffPoint = finalURL.search(/\?|\#/)
         if(chopOffPoint != -1){
-            console.log(chalk.blue("chopped: ", finalURL))
             finalURL = finalURL.substring(0, chopOffPoint)
-            console.log(chalk.blue("to: ", finalURL))
         }
         if(isFile(finalURL) || finalURL == ""){
-            console.log(chalk.rgb(255,255,0)(`skipping file: ${url}`))
             //do nothing
         } else if((finalURL.match(httpsRegex) && finalURL.match(domainRegex))){
             // console.log(chalk.yellow("adding url to list for audit: ", finalURL ))
