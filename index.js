@@ -20,6 +20,7 @@ program
     .option('-sd, --subdomainPath <string>', 'enter the path of a .txt file of the domains you want included in the web crawl')
     .option('-l, --levels <integer>', 'enter the number of levels deep you want to crawl. (0= infinity; Default is 0) *Currently unsupported*')
     .option('-e, --entrance <string>', 'enter the url of the page you want to start the crawl from')
+    .option('-r, --redirects <boolean>', 'Include redirected domains? default: true')
     .action(getUrls)
 
 program
