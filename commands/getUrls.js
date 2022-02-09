@@ -77,7 +77,7 @@ export default async function getUrls({host, subdomainPath='./validurls.txt', le
             console.log(chalk.green("On URL " + counter + " of " + urlsToAudit.size));
             if(!urlToAudit.match(new RegExp(''+ validDomains.join('|') +'', 'i'))){
                 console.log(chalk.red("inValid URL " + urlToAudit))
-                resolve(urlToAudit)
+                resolve(urlsToAudit)
             } else{
                 console.log("Searching " + urlToAudit)
 
@@ -218,7 +218,7 @@ export default async function getUrls({host, subdomainPath='./validurls.txt', le
         redirectedDomains = redirectedDomains.split(",")
         redirectedDomains.pop() 
         if(url.match(new RegExp(""+redirectedDomains.join('$|')+"[]$"))){
-            console.log("url matched: ", url)
+            // console.log("url matched: ", url)
             return true
         } else {
             return false
