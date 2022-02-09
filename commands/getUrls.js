@@ -75,75 +75,81 @@ export default async function getUrls({host, subdomainPath='./validurls.txt', le
             let urlArrayToAudit = Array.from(urlsToAudit)
             let urlToAudit = urlArrayToAudit[counter]
             console.log(chalk.green("On URL " + counter + " of " + urlsToAudit.size));
-            console.log("Searching " + urlToAudit)
-            //Change log level to info and comment out chromeFlags for debugging
-            const chrome = await chromeLauncher.launch({chromeFlags: ['--headless'], logLevel: 'silent' });
-            const protocol = await CDP({port: chrome.port});
-            
-            // Extract the DevTools protocol domains we need and enable them.
-            // See API docs: https://chromedevtools.github.io/devtools-protocol/
-            const {Page, Runtime} = protocol;
-            await Promise.all([Page.enable(), Runtime.enable()]);
-            Page.navigate({url: urlToAudit});
-            // Wait for window.onload before doing stuff.
-            Page.loadEventFired(async () => {
-                const getHtml = "document.querySelector('html').outerHTML";
-                const getOrigin = "window.location.origin";
-                const getPath = "window.location.pathname";
-                
-                // Evaluate the JS expression in the page.
-                const result = await Runtime.evaluate({expression: getHtml});
-                const originResult = await Runtime.evaluate({expression: getOrigin});
-                const pathResult = await Runtime.evaluate({expression: getPath});
-                const finalFullUrl = originResult.result.value + pathResult.result.value
-    
-                if(isRedirect(urlToAudit, finalFullUrl)){
-                    
-                    let writeRedirects = fs.createWriteStream(`data/${folderPath}/urlList/redirects.csv`, {flags:'a'})
-                    let writeRedirectMaps = fs.createWriteStream(`data/${folderPath}/urlList/redirect_map.csv`, {flags:'a'})
-                    writeRedirects.write(`${urlToAudit},`);
-                    writeRedirectMaps.write(`${urlToAudit}, ${finalFullUrl}, \n`);
-    
-                    if(!redirects){
-                        urlsToAudit.delete(urlToAudit)
-                        console.log(chalk.green.bold(`Removed url redirect: ${urlToAudit} from urlList.csv`))
-                    }
+            if(!urlToAudit.match(new RegExp(''+ validDomains.join('|') +'', 'i'))){
+                console.log(chalk.red("inValid URL " + urlToAudit))
+                resolve(urlToAudit)
+            } else{
+                console.log("Searching " + urlToAudit)
 
-                    urlsToAudit.add(finalFullUrl)
-                    fs.writeFileSync(`data/${folderPath}/urlList/urlList.csv`, Array.from(urlsToAudit).join(','))
+                //Change log level to info and comment out chromeFlags for debugging
+                const chrome = await chromeLauncher.launch({chromeFlags: ['--headless'], logLevel: 'silent' });
+                const protocol = await CDP({port: chrome.port});
+                
+                // Extract the DevTools protocol domains we need and enable them.
+                // See API docs: https://chromedevtools.github.io/devtools-protocol/
+                const {Page, Runtime} = protocol;
+                await Promise.all([Page.enable(), Runtime.enable()]);
+                Page.navigate({url: urlToAudit});
+                // Wait for window.onload before doing stuff.
+                Page.loadEventFired(async () => {
+                    const getHtml = "document.querySelector('html').outerHTML";
+                    const getOrigin = "window.location.origin";
+                    const getPath = "window.location.pathname";
+                    
+                    // Evaluate the JS expression in the page.
+                    const result = await Runtime.evaluate({expression: getHtml});
+                    const originResult = await Runtime.evaluate({expression: getOrigin});
+                    const pathResult = await Runtime.evaluate({expression: getPath});
+                    const finalFullUrl = originResult.result.value + pathResult.result.value
+        
+                    if(isRedirect(urlToAudit, finalFullUrl)){
+                        
+                        let writeRedirects = fs.createWriteStream(`data/${folderPath}/urlList/redirects.csv`, {flags:'a'})
+                        let writeRedirectMaps = fs.createWriteStream(`data/${folderPath}/urlList/redirect_map.csv`, {flags:'a'})
+                        writeRedirects.write(`${urlToAudit},`);
+                        writeRedirectMaps.write(`${urlToAudit}, ${finalFullUrl}, \n`);
+        
+                        if(!redirects){
+                            urlsToAudit.delete(urlToAudit)
+                            console.log(chalk.green.bold(`Removed url redirect: ${urlToAudit} from urlList.csv`))
+                        }
     
-                    protocol.close();
-                    chrome.kill().then(() => {
-                        console.log("Chrome is finished")
-                        //wait 0.5 second so chrome can run again without interferance
-                        setTimeout(() => {
-                            // counter++
-                            // aggregateUrlsFromSite(url, host, folderPath, validDomains, urlsToAudit, levels, counter)
-                            resolve(urlsToAudit)
-                        }, 250)
-                    })
-                } else {
-                    const htmlData = result.result.value
-                    fs.writeFileSync(`data/${folderPath}/urlList/test.html`, htmlData);
-                    //parse html
-                    let urlArray = parseUrlsFromHtml(htmlData)
+                        urlsToAudit.add(finalFullUrl)
+                        fs.writeFileSync(`data/${folderPath}/urlList/urlList.csv`, Array.from(urlsToAudit).join(','))
         
-                    //add urls to urlsToAudit
-                    addURLToSet(urlArray, validDomains, urlsToAudit, originResult.result.value)
-        
-        
-                    protocol.close();
-                    chrome.kill().then(() => {
-                        console.log("Chrome is finished")
-                        //wait 0.5 second so chrome can run again without interferance
-                        setTimeout(() => {
-                            // counter++
-                            // aggregateUrlsFromSite(url, host, folderPath, validDomains, urlsToAudit, levels, counter)
-                            resolve(urlsToAudit)
-                        }, 250)
-                    })
-                }
-            })
+                        protocol.close();
+                        chrome.kill().then(() => {
+                            console.log("Chrome is finished")
+                            //wait 0.5 second so chrome can run again without interferance
+                            setTimeout(() => {
+                                // counter++
+                                // aggregateUrlsFromSite(url, host, folderPath, validDomains, urlsToAudit, levels, counter)
+                                resolve(urlsToAudit)
+                            }, 250)
+                        })
+                    } else {
+                        const htmlData = result.result.value
+                        fs.writeFileSync(`data/${folderPath}/urlList/test.html`, htmlData);
+                        //parse html
+                        let urlArray = parseUrlsFromHtml(htmlData)
+            
+                        //add urls to urlsToAudit
+                        addURLToSet(urlArray, validDomains, urlsToAudit, originResult.result.value)
+            
+            
+                        protocol.close();
+                        chrome.kill().then(() => {
+                            console.log("Chrome is finished")
+                            //wait 0.5 second so chrome can run again without interferance
+                            setTimeout(() => {
+                                // counter++
+                                // aggregateUrlsFromSite(url, host, folderPath, validDomains, urlsToAudit, levels, counter)
+                                resolve(urlsToAudit)
+                            }, 250)
+                        })
+                    }
+                })
+            }
         })
     }
 
