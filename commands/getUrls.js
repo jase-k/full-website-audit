@@ -23,7 +23,7 @@ export default async function getUrls({host, subdomainPath='./validurls.txt', le
     let date = new Date()
 
     //Creates Unique Folder Name
-    let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDay()}(${date.getHours()}-${date.getMinutes()})`
+    let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}(${date.getHours()}-${date.getMinutes()})`
     fs.mkdirSync(`data/${folderPath}/urlList/`, {recursive:true})
     console.log(chalk.green.bold(`directory data/${folderPath}/urlList/ successfully created`))    
     fs.writeFileSync(`data/${folderPath}/urlList/redirects.csv`, '')
@@ -211,7 +211,7 @@ export default async function getUrls({host, subdomainPath='./validurls.txt', le
         let redirectedDomains = fs.readFileSync(`data/${folderPath}/urlList/redirects.csv`, {encoding: 'utf8'})
         redirectedDomains = redirectedDomains.split(",")
         redirectedDomains.pop() 
-        if(url.match(new RegExp(""+redirectedDomains.join('|')+""))){
+        if(url.match(new RegExp(""+redirectedDomains.join('$|')+"[]$"))){
             console.log("url matched: ", url)
             return true
         } else {
