@@ -2,6 +2,7 @@
 import { program } from 'commander';
 import webAudit from './commands/webAudit.js';
 import getUrls from './commands/getUrls.js';
+import webScraper from './commands/webScraper.js';
 
 program
     .command('run')
@@ -31,5 +32,12 @@ program
     .option('--detailed <boolean>', 'more data provided on final csv file')
     .option('--removeErrors <boolean>', 'remove runtime errors from report')
     .action(webAudit)
+
+program
+    .command('pull-content')
+    .description('scrape content from lulzbot.com')
+    .option('-u, --url <string>', 'enter the url of the website you want to audit')
+    .option('-ul, --urlListPath <string>', 'enter the path of a .csv file of the domains you want included in the web audit')
+    .action(webScraper)
 
 program.parse()

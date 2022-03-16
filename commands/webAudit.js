@@ -15,7 +15,7 @@ export default async function webAudit({url, urlListPath, detailed, removeErrors
     let date = new Date()
 
     //Creates Unique Folder Name
-    let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDay()}(${date.getHours()}-${date.getMinutes()})audit`
+    let folderPath = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}(${date.getHours()}-${date.getMinutes()})audit`
     fs.mkdir(`data/${folderPath}/results/`, {recursive:true}, (err) => {
         if (err) throw err;
         console.log(chalk.green.bold(`directory data/${folderPath}/results/ successfully created`))    
@@ -45,6 +45,7 @@ export default async function webAudit({url, urlListPath, detailed, removeErrors
         if(urlListPath){
             console.log(e)
         }
+        urlArrayToAudit.push(url)
         console.log(chalk.yellow.bold("No urlList.csv document found, will audit " + url + "only"))
     }
 
@@ -83,6 +84,8 @@ async function runLighthouse(urlArray, idx, folderPath, detailed, removeErrors){
                 if(detailed){
                     mainData = formatDetailedAudit(results)
                 } else {
+                    let { performance, seo, accessibility } = results.categories 
+                    let bestPractices = results.categories['best-practices'] 
                     mainData = `${url},  ${runtimeError}, ${results.finalUrl}, ${performance.score * 100}, ${seo.score * 100}, ${accessibility.score * 100},  ${bestPractices.score * 100} \n`
                 }
 
