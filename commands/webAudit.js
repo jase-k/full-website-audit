@@ -1,3 +1,7 @@
+/*
+This function uses lighthouse and chrome-launcher to visit each website from a csv (csv must be a single row of urls) 
+It will document each result in the data folder created from the current directory
+*/
 import confImport from 'conf'
 // const conf = new confImport();
 import chalk from'chalk';

@@ -1,3 +1,15 @@
+/*
+NOT FINALIZED: 
+
+Use this function to scrape a website and list all urls in one csv file. The scraper currently operates by adding all urls found on a website to a 
+Set and calling a get request from each url in the Set. 
+
+KNOWN BUGS: 
+Some webpages will have components load after specific user interaction with the page and this crawler would not catch those
+Would like to have an option to output 404's and other statuses in a the csv
+*/
+
+
 import confImport from 'conf'
 // const conf = new confImport();
 import chalk from'chalk';
